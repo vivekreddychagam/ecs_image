@@ -1,4 +1,4 @@
-# Starter pipeline
+ # Starter pipeline
 # Start with a minimal pipeline that you can customize to build and deploy your code.
 # Add steps that build, run tests, deploy, and more:
 # https://aka.ms/yaml
@@ -8,62 +8,24 @@ trigger:
 
 pool:
   vmImage: ubuntu-latest
-
 variables:
-  - name: AWS_ACCOUNT_ID
-    value: 594062188969
-  - name: APP_NAME
-    value: test
-  - name: DOCKERFILE_PATH
-    value: ecs_image/Dockerfile
-  - name: AWS_REGION
-    value : us-east-2
-  - name: FARGATE_CLUSTER_ARN
-    value: arn:aws:ecs:$(AWS_REGION):$(AWS_ACCOUNT_ID):cluster/social-api-cluster
-  - name: SERVICE_NAME
-    value: search-api-svc   
-  - name: ECR_REPOSITORY
-    value: $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(APP_NAME)
-  - name: FARGATE_CLI_PATH
-    value: ECSToolset/fargate-cli/linux64
-  - name: TAG
-    value: $(Build.BuildId)
+  - group: dev
+  - name: DOCKER_REPOSITORY
+    value: $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(DOCKER_REPOSITORY_NAME)
 
-stages:
-- stage: 'BuildAndPushToECR'
-  jobs:
-  - job: 'Build'
-    steps:    
-    - checkout: self  
-    - script: |
-        echo Starting docker build
-        echo  docker build -t $(APP_NAME):$(TAG) -f $(System.DefaultWorkingDirectory)/$(DOCKERFILE_PATH) .
-        docker build -t $(APP_NAME):$(TAG) -f $(System.DefaultWorkingDirectory)/$(DOCKERFILE_PATH) .        
-      displayName: 'Run docker build'  
-    - task: ECRPushImage@1
-      displayName:  Push image to ECR
-      inputs:
-        awsCredentials: 'aws'
-        regionName: '$(AWS_REGION)'
-        imageSource: 'imagename'
-        sourceImageName: '$(APP_NAME)'
-        sourceImageTag: '$(TAG)'
-        repositoryName: '$(APP_NAME)'
-        pushTag: '$(TAG)'
-- stage : 'DeployToECSFargateCluster'
-  jobs:
-  - job:      
-    steps:  
-      - checkout: FargateCliRepository
-      - checkout: self     
-      - task: AWSShellScript@1
-        inputs:
-          awsCredentials: 'AWS Fargate Dev'
-          regionName: '$(AWS_REGION)'
-          scriptType: 'inline'
-          inlineScript: |
-            cd $(System.DefaultWorkingDirectory)/$(FARGATE_CLI_PATH)
-            ./fargate service deploy $(SERVICE_NAME) --image $(ECR_REPOSITORY):$(TAG) --cluster $(FARGATE_CLUSTER_ARN) --region $(AWS_REGION)            
-        displayName: 'Update Task Definition'
+steps:
+- script: |
+    aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+  displayName: 'Login to AWS'
+  env:
+    AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+    AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
-
+- task: Docker@2
+  displayName: Build docker image
+  inputs:
+    repository: $(DOCKER_REPOSITORY)
+    command: buildAndPush
+    Dockerfile: Dockerfile
+    tags: |
+      latest
