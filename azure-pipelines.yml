@@ -40,9 +40,9 @@ stages:
         echo  docker build -t $(APP_NAME):$(TAG) -f $(System.DefaultWorkingDirectory)/$(DOCKERFILE_PATH) .
         docker build -t $(APP_NAME):$(TAG) -f $(System.DefaultWorkingDirectory)/$(DOCKERFILE_PATH) .        
       displayName: 'Run docker build'  
-   - task: ECRPushImage@1
-      displayName:  Push image to ECR
-      inputs:
+    - task: ECRPushImage@1
+       displayName:  Push image to ECR
+       inputs:
         awsCredentials: 'aws'
         regionName: '$(AWS_REGION)'
         imageSource: 'imagename'
